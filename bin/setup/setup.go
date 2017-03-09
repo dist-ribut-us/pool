@@ -21,8 +21,7 @@ func main() {
 
 	p, err := pool.Open(passphrase)
 
-	key, err := crypto.RandomShared()
-	check(err)
+	key := crypto.RandomShared()
 
 	overlay := &pool.Program{
 		Name:     "Overlay",
