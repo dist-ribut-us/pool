@@ -2,6 +2,7 @@ package pool
 
 import (
 	"github.com/dist-ribut-us/crypto"
+	"github.com/dist-ribut-us/errors"
 	"github.com/dist-ribut-us/merkle"
 	"io/ioutil"
 )
@@ -12,7 +13,7 @@ const (
 	saltLen  = 16
 )
 
-var ErrBadSetup = defineErr("Bad setup")
+const ErrBadSetup = errors.String("Bad setup")
 
 func openMerkle(passphrase []byte) (*merkle.Forest, error) {
 	salt, err := ioutil.ReadFile(Dir + SaltFile)

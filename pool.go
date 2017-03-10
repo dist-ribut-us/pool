@@ -11,13 +11,6 @@ import (
 // this needs to be moved to config
 const Port = "3000"
 
-// this allows errors to be defined as const instead of var
-type defineErr string
-
-func (d defineErr) Error() string {
-	return string(d)
-}
-
 var progBkt = []byte("programs")
 
 type Pool struct {
