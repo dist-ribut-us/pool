@@ -3,21 +3,28 @@ package pool
 import (
 	"fmt"
 	"github.com/dist-ribut-us/crypto"
+	"github.com/dist-ribut-us/ipc"
+	"github.com/dist-ribut-us/log"
 	"github.com/dist-ribut-us/merkle"
+	"github.com/dist-ribut-us/rnet"
+	"github.com/dist-ribut-us/serial"
 	"github.com/golang/protobuf/proto"
 	"os/exec"
 )
 
 // this needs to be moved to config
-const Port = "3000"
+var Port = rnet.Port(3000)
 
 var progBkt = []byte("programs")
 
+// Pool coordinates all local resources for dist.ribut.us
 type Pool struct {
 	forrest  *merkle.Forest
 	programs map[string]*Program
+	ipc      *ipc.Proc
 }
 
+// Open the merkle forrest and setup the pool
 func Open(passphrase []byte) (*Pool, error) {
 	f, err := openMerkle(passphrase)
 	if err != nil {
@@ -39,22 +46,7 @@ func Open(passphrase []byte) (*Pool, error) {
 	return p, nil
 }
 
-func (p *Pool) Len() int {
-	return len(p.programs)
-}
-
-func (p *Pool) List() []string {
-	var prgs []string
-	for prg := range p.programs {
-		prgs = append(prgs, prg)
-	}
-	return prgs
-}
-
-func (p *Pool) Status() string {
-	return "OK"
-}
-
+// Add a program
 func (p *Pool) Add(prog *Program) error {
 	//todo: check if already in map
 	data, err := proto.Marshal(prog)
@@ -66,15 +58,46 @@ func (p *Pool) Add(prog *Program) error {
 	return nil
 }
 
+// Start the ipc listener and all the progams designated to start
 func (p *Pool) Start() {
+	var err error
+	p.ipc, err = ipc.RunNew(Port)
+	log.Error(err)
 	for _, prg := range p.programs {
 		if !prg.Start {
 			continue
 		}
-		fmt.Println(prg.GetLocation(), prg.PortStr(), Port, crypto.SharedFromSlice(prg.Key).String())
-		err := exec.Command(prg.GetLocation(), prg.PortStr(), Port, crypto.SharedFromSlice(prg.Key).String()).Run()
-		if err != nil {
-			fmt.Println("Start Error: ", err)
+		go func() {
+			fmt.Println(prg.GetLocation(), prg.PortStr(), Port.RawStr(), crypto.SharedFromSlice(prg.Key).String())
+			err = exec.Command(prg.GetLocation(), prg.PortStr(), Port.RawStr(), crypto.SharedFromSlice(prg.Key).String()).Run()
+			log.Error(err)
+		}()
+	}
+}
+
+// Chan gets the ipc channel
+func (p *Pool) Chan() <-chan *ipc.Message {
+	return p.ipc.Chan()
+}
+
+// HandleQuery takes a wrapper and responds to it's query
+func (p *Pool) HandleQuery(w *ipc.Wrapper) {
+	log.Info(log.Lbl("handling_query"))
+	q := w.Query
+	if q == nil {
+		log.Info(log.Lbl("pool_got_nil_query_from"), w.Port())
+	}
+	switch q.Type {
+	case "port":
+		name := string(q.Body)
+		prg, ok := p.programs[name]
+		if !ok {
+			log.Info(log.Lbl("bad_port_request"), name, w.Port())
 		}
+		r := &ipc.Response{
+			Body: make([]byte, 4),
+		}
+		serial.MarshalUint32(prg.Port32, r.Body)
+		p.ipc.SendResponse(r, w)
 	}
 }
