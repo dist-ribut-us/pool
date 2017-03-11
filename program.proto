@@ -7,7 +7,7 @@ message Program{
   string Location = 2;
   bool UI = 3;
   bytes Key = 4;
-  uint32 Port = 5;
+  uint32 Port32 = 5;
   bool Start = 6;
   repeated string Implements = 7;
 }

@@ -28,7 +28,7 @@ func main() {
 		Location: "./overlay",
 		UI:       false,
 		Key:      key.Slice(),
-		Port:     uint32(rnet.RandomPort()),
+		Port32:   uint32(rnet.RandomPort()),
 		Start:    true,
 	}
 	p.Add(overlay)

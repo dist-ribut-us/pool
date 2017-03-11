@@ -1,7 +1,9 @@
 package pool
 
 import (
-	"fmt"
+	"github.com/dist-ribut-us/rnet"
+	"strconv"
 )
 
-func (p *Program) PortStr() string { return fmt.Sprintf("%d", p.Port) }
+func (p *Program) Port() rnet.Port { return rnet.Port(p.Port32) }
+func (p *Program) PortStr() string { return strconv.Itoa(int(p.Port32)) }
