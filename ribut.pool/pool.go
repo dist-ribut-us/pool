@@ -10,24 +10,18 @@ import (
 
 func main() {
 	log.Contents = log.Truncate
-	log.Panic(log.ToFile())
 	log.Go()
+
+	var p *pool.Pool
+	if !pool.IsSetup() {
+		p = setup()
+	} else {
+		log.Panic(log.ToFile(pool.LogFile))
+		p = open()
+	}
 
 	log.Info(log.Lbl("starting_pool"))
 
-	var p *pool.Pool
-	var err error
-	for {
-		passphrase := getPassphrase()
-		p, err = pool.Open(passphrase)
-		if err == nil {
-			break
-		} else if err == crypto.ErrDecryptionFailed {
-			continue
-		} else {
-			log.Panic(err)
-		}
-	}
 	p.Start()
 	log.Info("pool_listening")
 	for msg := range p.Chan() {
@@ -48,4 +42,18 @@ func getPassphrase() []byte {
 	pass, err := gopass.GetPasswd()
 	log.Panic(err)
 	return pass
+}
+
+func open() *pool.Pool {
+	for {
+		passphrase := getPassphrase()
+		p, err := pool.Open(passphrase)
+		if err == nil {
+			return p
+		} else if err == crypto.ErrDecryptionFailed {
+			continue
+		} else {
+			log.Panic(err)
+		}
+	}
 }

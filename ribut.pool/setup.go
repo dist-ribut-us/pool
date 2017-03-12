@@ -13,10 +13,8 @@ import (
 	"os"
 )
 
-func main() {
-	log.Panic(log.ToFile())
-	log.Go()
-
+func setup() *pool.Pool {
+	log.Info(log.Lbl("starting_setup"))
 	passphrase := setPassphrase()
 
 	buildMerkle(passphrase)
@@ -25,7 +23,7 @@ func main() {
 
 	p.Add(&pool.Program{
 		Name:     "Overlay",
-		Location: "./overlay",
+		Location: "ribut.overlay",
 		UI:       false,
 		Key:      crypto.RandomShared().Slice(),
 		Port32:   uint32(rnet.RandomPort()),
@@ -33,14 +31,14 @@ func main() {
 	})
 	p.Add(&pool.Program{
 		Name:     "DHT",
-		Location: "./dht",
+		Location: "ribut.dht",
 		UI:       false,
 		Key:      crypto.RandomShared().Slice(),
 		Port32:   uint32(rnet.RandomPort()),
 		Start:    true,
 	})
 
-	fmt.Println("Pool is setup")
+	return p
 }
 
 func setPassphrase() []byte {
@@ -62,14 +60,16 @@ func buildMerkle(passphrase []byte) {
 	salt := make([]byte, 16)
 	_, err := rand.Read(salt)
 	log.Panic(err)
-	log.Panic(os.MkdirAll(pool.Dir, 0777))
-	saltFile, err := os.Create(pool.Dir + pool.SaltFile)
+	dir := pool.Dir()
+	log.Panic(os.MkdirAll(dir, 0777))
+	log.Panic(log.ToFile(pool.LogFile))
+	saltFile, err := os.Create(dir + pool.SaltFile())
 	log.Panic(err)
 	defer func() { log.Panic(saltFile.Close()) }()
 	_, err = saltFile.Write(salt)
 	log.Panic(err)
 	key := crypto.Hash(passphrase, salt).Digest().Shared()
-	forest, err := merkle.Open(pool.Dir, key)
+	forest, err := merkle.Open(dir, key)
 	log.Panic(err)
 	forest.Close()
 }
