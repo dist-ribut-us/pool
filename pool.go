@@ -12,7 +12,7 @@ import (
 	"os/exec"
 )
 
-// this needs to be moved to config
+// Port that pool will run on, should be moved to config
 var Port = rnet.Port(3000)
 
 var progBkt = []byte("programs")

@@ -8,11 +8,14 @@ import (
 )
 
 const (
-	Dir      = "./poolData/"
+	// Dir is the directory for the pool data, including the Merkle forrest
+	Dir = "./poolData/"
+	// SaltFile is the name of the file in Dir where the salt is stored
 	SaltFile = "salt.bin"
 	saltLen  = 16
 )
 
+// ErrBadSetup will be returned if the merkle forrest ccannot be read
 const ErrBadSetup = errors.String("Bad setup")
 
 func openMerkle(passphrase []byte) (*merkle.Forest, error) {
