@@ -3,17 +3,17 @@ package main
 import (
 	"fmt"
 	"github.com/dist-ribut-us/crypto"
-	"github.com/dist-ribut-us/ipc"
 	"github.com/dist-ribut-us/log"
 	"github.com/dist-ribut-us/pool"
 	"github.com/howeyc/gopass"
 )
 
 func main() {
+	log.Contents = log.Truncate
 	log.Panic(log.ToFile())
 	log.Go()
 
-	log.Info("Starting Pool")
+	log.Info(log.Lbl("starting_pool"))
 
 	var p *pool.Pool
 	var err error
@@ -31,15 +31,14 @@ func main() {
 	p.Start()
 	log.Info("pool_listening")
 	for msg := range p.Chan() {
-		w, err := msg.Unwrap()
+		b, err := msg.ToBase()
 		if log.Error(err) {
 			continue
 		}
-		switch w.Type {
-		case ipc.Type_QUERY:
-			go p.HandleQuery(w)
-		default:
-			log.Info(log.Lbl("pool_unknown_type"), w.Type)
+		if b.IsQuery() {
+			go p.HandleQuery(b)
+		} else {
+			log.Info(log.Lbl("pool_unknown_type"), b.Type)
 		}
 	}
 }

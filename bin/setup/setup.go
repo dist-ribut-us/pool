@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"github.com/dist-ribut-us/crypto"
+	"github.com/dist-ribut-us/log"
 	"github.com/dist-ribut-us/merkle"
 	"github.com/dist-ribut-us/pool"
 	"github.com/dist-ribut-us/rnet"
@@ -13,47 +14,43 @@ import (
 )
 
 func main() {
+	log.Panic(log.ToFile())
+	log.Go()
+
 	passphrase := setPassphrase()
 
-	f, err := buildMerkle(passphrase)
-	check(err)
-	f.Close()
-
+	buildMerkle(passphrase)
 	p, err := pool.Open(passphrase)
+	log.Panic(err)
 
-	key := crypto.RandomShared()
-
-	overlay := &pool.Program{
+	p.Add(&pool.Program{
 		Name:     "Overlay",
 		Location: "./overlay",
 		UI:       false,
-		Key:      key.Slice(),
+		Key:      crypto.RandomShared().Slice(),
 		Port32:   uint32(rnet.RandomPort()),
 		Start:    true,
-	}
-	p.Add(overlay)
+	})
+	p.Add(&pool.Program{
+		Name:     "DHT",
+		Location: "./dht",
+		UI:       false,
+		Key:      crypto.RandomShared().Slice(),
+		Port32:   uint32(rnet.RandomPort()),
+		Start:    true,
+	})
 
 	fmt.Println("Pool is setup")
-}
-
-func check(err error) {
-	if err != nil {
-		panic(err)
-	}
 }
 
 func setPassphrase() []byte {
 	for {
 		fmt.Println("Password: ")
 		pass1, err := gopass.GetPasswd()
-		if err != nil {
-			panic(err)
-		}
+		log.Panic(err)
 		fmt.Println("Again: ")
 		pass2, err := gopass.GetPasswd()
-		if err != nil {
-			panic(err)
-		}
+		log.Panic(err)
 		if bytes.Equal(pass1, pass2) {
 			return pass1
 		}
@@ -61,16 +58,18 @@ func setPassphrase() []byte {
 	}
 }
 
-func buildMerkle(passphrase []byte) (*merkle.Forest, error) {
+func buildMerkle(passphrase []byte) {
 	salt := make([]byte, 16)
-	rand.Read(salt)
-	os.MkdirAll(pool.Dir, 0777)
+	_, err := rand.Read(salt)
+	log.Panic(err)
+	log.Panic(os.MkdirAll(pool.Dir, 0777))
 	saltFile, err := os.Create(pool.Dir + pool.SaltFile)
-	if err != nil {
-		return nil, err
-	}
-	defer saltFile.Close()
-	saltFile.Write(salt)
+	log.Panic(err)
+	defer func() { log.Panic(saltFile.Close()) }()
+	_, err = saltFile.Write(salt)
+	log.Panic(err)
 	key := crypto.Hash(passphrase, salt).Digest().Shared()
-	return merkle.Open(pool.Dir, key)
+	forest, err := merkle.Open(pool.Dir, key)
+	log.Panic(err)
+	forest.Close()
 }

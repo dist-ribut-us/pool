@@ -67,11 +67,15 @@ func (p *Pool) Start() {
 		if !prg.Start {
 			continue
 		}
-		go func() {
+		go func(prg *Program) {
+			lg := log.Child(prg.Name)
 			fmt.Println(prg.GetLocation(), prg.PortStr(), Port.RawStr(), crypto.SharedFromSlice(prg.Key).String())
-			err = exec.Command(prg.GetLocation(), prg.PortStr(), Port.RawStr(), crypto.SharedFromSlice(prg.Key).String()).Run()
-			log.Error(err)
-		}()
+			cmd := exec.Command(prg.GetLocation(), prg.PortStr(), Port.RawStr(), crypto.SharedFromSlice(prg.Key).String())
+			out, err := cmd.CombinedOutput()
+			if lg.Error(err) {
+				lg.Info(string(out))
+			}
+		}(prg)
 	}
 }
 
@@ -81,23 +85,16 @@ func (p *Pool) Chan() <-chan *ipc.Message {
 }
 
 // HandleQuery takes a wrapper and responds to it's query
-func (p *Pool) HandleQuery(w *ipc.Wrapper) {
+func (p *Pool) HandleQuery(q *ipc.Base) {
 	log.Info(log.Lbl("handling_query"))
-	q := w.Query
-	if q == nil {
-		log.Info(log.Lbl("pool_got_nil_query_from"), w.Port())
-	}
 	switch q.Type {
-	case "port":
+	case ipc.TPort:
 		name := string(q.Body)
 		prg, ok := p.programs[name]
 		if !ok {
-			log.Info(log.Lbl("bad_port_request"), name, w.Port())
+			log.Info(log.Lbl("bad_port_request"), name, q.Port())
+			return
 		}
-		r := &ipc.Response{
-			Body: make([]byte, 4),
-		}
-		serial.MarshalUint32(prg.Port32, r.Body)
-		p.ipc.SendResponse(r, w)
+		q.Respond(serial.MarshalUint32(prg.Port32, nil))
 	}
 }
