@@ -14,7 +14,6 @@ import (
 )
 
 func setup() *pool.Pool {
-	log.Info(log.Lbl("starting_setup"))
 	passphrase := setPassphrase()
 
 	buildMerkle(passphrase)
@@ -62,7 +61,9 @@ func buildMerkle(passphrase []byte) {
 	log.Panic(err)
 	dir := pool.Dir()
 	log.Panic(os.MkdirAll(dir, 0777))
+	// now that directory exists, we can set logging up
 	log.Panic(log.ToFile(pool.LogFile))
+	log.Info(log.Lbl("running_setup"))
 	saltFile, err := os.Create(dir + pool.SaltFile())
 	log.Panic(err)
 	defer func() { log.Panic(saltFile.Close()) }()

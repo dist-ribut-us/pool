@@ -13,6 +13,7 @@ const (
 	saltLen  = 16
 )
 
+// LogFile for pool log
 var LogFile = prog.Root() + "pool.log"
 var dir = prog.Root() + "poolData/"
 
