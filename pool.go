@@ -6,6 +6,7 @@ import (
 	"github.com/dist-ribut-us/ipc"
 	"github.com/dist-ribut-us/log"
 	"github.com/dist-ribut-us/merkle"
+	"github.com/dist-ribut-us/message"
 	"github.com/dist-ribut-us/rnet"
 	"github.com/dist-ribut-us/serial"
 	"github.com/golang/protobuf/proto"
@@ -87,8 +88,8 @@ func (p *Pool) Chan() <-chan *ipc.Message {
 // HandleQuery takes a wrapper and responds to it's query
 func (p *Pool) HandleQuery(q *ipc.Base) {
 	log.Info(log.Lbl("handling_query"))
-	switch q.Type {
-	case ipc.TPort:
+	switch t := q.GetType(); t {
+	case message.GetPort:
 		name := string(q.Body)
 		prg, ok := p.programs[name]
 		if !ok {
@@ -96,5 +97,7 @@ func (p *Pool) HandleQuery(q *ipc.Base) {
 			return
 		}
 		q.Respond(serial.MarshalUint32(prg.Port32, nil))
+	default:
+		log.Info("unknown_query", t)
 	}
 }

@@ -32,7 +32,7 @@ func main() {
 		if b.IsQuery() {
 			go p.HandleQuery(b)
 		} else {
-			log.Info(log.Lbl("pool_unknown_type"), b.Type)
+			log.Info(log.Lbl("pool_unknown_type"), b.GetType())
 		}
 	}
 }
