@@ -1,7 +1,6 @@
 package pool
 
 import (
-	"fmt"
 	"github.com/dist-ribut-us/crypto"
 	"github.com/dist-ribut-us/ipc"
 	"github.com/dist-ribut-us/log"
@@ -59,34 +58,47 @@ func (p *Pool) Add(prog *Program) error {
 	return nil
 }
 
-// Start the ipc listener and all the progams designated to start
-func (p *Pool) Start() {
+// Run the ipc listener and all the progams designated to start
+func (p *Pool) Run() {
 	var err error
-	p.ipc, err = ipc.RunNew(Port)
-	log.Error(err)
+	p.ipc, err = ipc.New(Port)
+	if log.Error(err) {
+		return
+	}
+	p.ipc.Handler(p.handler)
+	go p.startAll()
+	p.ipc.Run()
+}
+
+func (p *Pool) startAll() {
 	for _, prg := range p.programs {
 		if !prg.Start {
 			continue
 		}
-		go func(prg *Program) {
-			lg := log.Child(prg.Name)
-			fmt.Println(prg.GetLocation(), prg.PortStr(), Port.RawStr(), crypto.SharedFromSlice(prg.Key).String())
-			cmd := exec.Command(prg.GetLocation(), prg.PortStr(), Port.RawStr(), crypto.SharedFromSlice(prg.Key).String())
-			out, err := cmd.CombinedOutput()
-			if lg.Error(err) {
-				lg.Info(string(out))
-			}
-		}(prg)
+		go p.run(prg)
 	}
 }
 
-// Chan gets the ipc channel
-func (p *Pool) Chan() <-chan *ipc.Message {
-	return p.ipc.Chan()
+func (p *Pool) run(prg *Program) {
+	lg := log.Child(prg.Name)
+	log.Info(log.Lbl("starting"), prg.GetLocation())
+	cmd := exec.Command(prg.GetLocation(), prg.PortStr(), Port.RawStr(), crypto.SharedFromSlice(prg.Key).String())
+	out, err := cmd.CombinedOutput()
+	if lg.Error(err) {
+		lg.Info(string(out))
+	}
 }
 
-// HandleQuery takes a wrapper and responds to it's query
-func (p *Pool) HandleQuery(q *ipc.Base) {
+func (p *Pool) handler(b *ipc.Base) {
+	if b.IsQuery() {
+		go p.handleQuery(b)
+	} else {
+		log.Info(log.Lbl("pool_unknown_type"), b.GetType())
+	}
+}
+
+// handleQuery takes a wrapper and responds to it's query
+func (p *Pool) handleQuery(q *ipc.Base) {
 	log.Info(log.Lbl("handling_query"))
 	switch t := q.GetType(); t {
 	case message.GetPort:

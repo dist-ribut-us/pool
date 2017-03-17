@@ -22,19 +22,7 @@ func main() {
 
 	log.Info(log.Lbl("starting_pool"))
 
-	p.Start()
-	log.Info("pool_listening")
-	for msg := range p.Chan() {
-		b, err := msg.ToBase()
-		if log.Error(err) {
-			continue
-		}
-		if b.IsQuery() {
-			go p.HandleQuery(b)
-		} else {
-			log.Info(log.Lbl("pool_unknown_type"), b.GetType())
-		}
-	}
+	p.Run()
 }
 
 func getPassphrase() []byte {
