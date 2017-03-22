@@ -13,13 +13,27 @@ import (
 	"os"
 )
 
-func setup() *pool.Pool {
+func userSetup() *pool.Pool {
 	passphrase := setPassphrase()
+	return setup(passphrase)
+}
 
+func beaconSetup() *pool.Pool {
+	p := setup(nil)
+	addBeacon(p)
+	return p
+}
+
+func setup(passphrase []byte) *pool.Pool {
 	buildMerkle(passphrase)
 	p, err := pool.Open(passphrase)
 	log.Panic(err)
+	addOverlay(p)
+	addDHT(p)
+	return p
+}
 
+func addOverlay(p *pool.Pool) {
 	p.Add(&pool.Program{
 		Name:     "Overlay",
 		Location: "ribut.overlay",
@@ -28,6 +42,9 @@ func setup() *pool.Pool {
 		Port32:   uint32(rnet.RandomPort()),
 		Start:    true,
 	})
+}
+
+func addDHT(p *pool.Pool) {
 	p.Add(&pool.Program{
 		Name:     "DHT",
 		Location: "ribut.dht",
@@ -36,16 +53,25 @@ func setup() *pool.Pool {
 		Port32:   uint32(rnet.RandomPort()),
 		Start:    true,
 	})
+}
 
-	return p
+func addBeacon(p *pool.Pool) {
+	p.Add(&pool.Program{
+		Name:     "Beacon",
+		Location: "ribut.beacon",
+		UI:       false,
+		Key:      crypto.RandomShared().Slice(),
+		Port32:   uint32(rnet.RandomPort()),
+		Start:    true,
+	})
 }
 
 func setPassphrase() []byte {
 	for {
-		fmt.Println("Password: ")
+		fmt.Print("\nPassword: ")
 		pass1, err := gopass.GetPasswd()
 		log.Panic(err)
-		fmt.Println("Again: ")
+		fmt.Print("\nAgain: ")
 		pass2, err := gopass.GetPasswd()
 		log.Panic(err)
 		if bytes.Equal(pass1, pass2) {

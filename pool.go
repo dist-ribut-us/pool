@@ -10,6 +10,7 @@ import (
 	"github.com/dist-ribut-us/serial"
 	"github.com/golang/protobuf/proto"
 	"os/exec"
+	"time"
 )
 
 // Port that pool will run on, should be moved to config
@@ -22,6 +23,7 @@ type Pool struct {
 	forrest  *merkle.Forest
 	programs map[string]*Program
 	ipc      *ipc.Proc
+	overlay  rnet.Port
 }
 
 // Open the merkle forrest and setup the pool
@@ -41,6 +43,10 @@ func Open(passphrase []byte) (*Pool, error) {
 			return nil, err
 		}
 		p.programs[prg.Name] = &prg
+	}
+
+	if overlay, ok := p.programs["Overlay"]; ok {
+		p.overlay = overlay.Port()
 	}
 
 	return p, nil
@@ -70,7 +76,18 @@ func (p *Pool) Run() {
 	p.ipc.Run()
 }
 
+// AddBeacon to help connect to network
+func (p *Pool) AddBeacon(addr *rnet.Addr, key *crypto.Pub) {
+	p.ipc.
+		Base(message.AddBeacon, key.Slice()).
+		SetAddr(addr).
+		To(p.overlay).
+		Send(nil)
+}
+
 func (p *Pool) startAll() {
+	p.ExitAll()
+	time.Sleep(time.Millisecond)
 	for _, prg := range p.programs {
 		if !prg.Start {
 			continue
@@ -86,6 +103,17 @@ func (p *Pool) run(prg *Program) {
 	out, err := cmd.CombinedOutput()
 	if lg.Error(err) {
 		lg.Info(string(out))
+	}
+}
+
+// ExitAll sends an exit message to all service, whether they are running or
+// not (closes stray programs from previous)
+func (p *Pool) ExitAll() {
+	for _, prg := range p.programs {
+		p.ipc.
+			Base(message.Die, nil).
+			To(prg.Port()).
+			Send(nil)
 	}
 }
 
@@ -112,4 +140,28 @@ func (p *Pool) handleQuery(q *ipc.Base) {
 	default:
 		log.Info("unknown_query", t)
 	}
+}
+
+// GetOverlayPubKey gets the public key for the network
+func (p *Pool) GetOverlayPubKey() string {
+	ch := make(chan string)
+	p.ipc.
+		Query(message.GetPubKey, nil).
+		To(p.overlay).
+		Send(func(r *ipc.Base) {
+			ch <- crypto.PubFromSlice(r.Body).String()
+		})
+	return <-ch
+}
+
+// GetOverlayNetPort gets the network port
+func (p *Pool) GetOverlayNetPort() uint32 {
+	ch := make(chan uint32)
+	p.ipc.
+		Query(message.GetPort, nil).
+		To(p.overlay).
+		Send(func(r *ipc.Base) {
+			ch <- r.BodyToUint32()
+		})
+	return <-ch
 }
