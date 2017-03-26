@@ -165,3 +165,28 @@ func (p *Pool) GetOverlayNetPort() uint32 {
 		})
 	return <-ch
 }
+
+// GetIP is a temporary method for testing.
+func (p *Pool) GetIP(from *rnet.Addr) *rnet.Addr {
+	ch := make(chan *rnet.Addr)
+	p.ipc.
+		Query(message.GetIP, nil).
+		ToNet(p.overlay, from, 19860714).
+		Send(func(r *ipc.Base) {
+			var addrpb message.Addrpb
+			err := r.Unmarshal(&addrpb)
+			if log.Error(err) {
+				return
+			}
+			ch <- addrpb.GetAddr()
+		})
+
+	var r *rnet.Addr
+	select {
+	case addr := <-ch:
+		r = addr
+	case <-time.After(time.Millisecond * 100):
+		r = nil
+	}
+	return r
+}

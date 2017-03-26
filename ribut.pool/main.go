@@ -125,6 +125,10 @@ var commands = map[string]command{
 				return
 			}
 			p.AddBeacon(addr, pub)
+
+			// just for testing
+			time.Sleep(time.Millisecond * 10)
+			log.Info(log.Lbl("get_ip_resp"), p.GetIP(addr))
 		},
 	},
 }
