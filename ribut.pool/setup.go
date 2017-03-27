@@ -38,7 +38,7 @@ func addOverlay(p *pool.Pool) {
 		Name:     "Overlay",
 		Location: "ribut.overlay",
 		UI:       false,
-		Key:      crypto.RandomShared().Slice(),
+		Key:      crypto.RandomSymmetric().Slice(),
 		Port32:   uint32(rnet.RandomPort()),
 		Start:    true,
 	})
@@ -49,7 +49,7 @@ func addDHT(p *pool.Pool) {
 		Name:     "DHT",
 		Location: "ribut.dht",
 		UI:       false,
-		Key:      crypto.RandomShared().Slice(),
+		Key:      crypto.RandomSymmetric().Slice(),
 		Port32:   uint32(rnet.RandomPort()),
 		Start:    true,
 	})
@@ -60,7 +60,7 @@ func addBeacon(p *pool.Pool) {
 		Name:     "Beacon",
 		Location: "ribut.beacon",
 		UI:       false,
-		Key:      crypto.RandomShared().Slice(),
+		Key:      crypto.RandomSymmetric().Slice(),
 		Port32:   uint32(rnet.RandomPort()),
 		Start:    true,
 	})
@@ -95,7 +95,7 @@ func buildMerkle(passphrase []byte) {
 	defer func() { log.Panic(saltFile.Close()) }()
 	_, err = saltFile.Write(salt)
 	log.Panic(err)
-	key := crypto.Hash(passphrase, salt).Digest().Shared()
+	key := crypto.Hash(passphrase, salt).Digest().Symmetric()
 	forest, err := merkle.Open(dir, key)
 	log.Panic(err)
 	forest.Close()

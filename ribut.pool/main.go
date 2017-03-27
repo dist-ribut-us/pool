@@ -119,7 +119,7 @@ var commands = map[string]command{
 				fmt.Println(err)
 				return
 			}
-			pub, err := crypto.PubFromString(s[2])
+			pub, err := crypto.XchgPubFromString(s[2])
 			if err != nil {
 				fmt.Println(err)
 				return

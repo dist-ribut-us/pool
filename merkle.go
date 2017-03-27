@@ -31,7 +31,7 @@ func openMerkle(passphrase []byte) (*merkle.Forest, error) {
 	if err != nil {
 		return nil, err
 	}
-	key := crypto.Hash(passphrase, salt).Digest().Shared()
+	key := crypto.Hash(passphrase, salt).Digest().Symmetric()
 	return merkle.Open(dir, key)
 }
 

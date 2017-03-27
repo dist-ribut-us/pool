@@ -77,7 +77,7 @@ func (p *Pool) Run() {
 }
 
 // AddBeacon to help connect to network
-func (p *Pool) AddBeacon(addr *rnet.Addr, key *crypto.Pub) {
+func (p *Pool) AddBeacon(addr *rnet.Addr, key *crypto.XchgPub) {
 	p.ipc.
 		Base(message.AddBeacon, key.Slice()).
 		SetAddr(addr).
@@ -99,7 +99,7 @@ func (p *Pool) startAll() {
 func (p *Pool) run(prg *Program) {
 	lg := log.Child(prg.Name)
 	log.Info(log.Lbl("starting"), prg.GetLocation())
-	cmd := exec.Command(prg.GetLocation(), prg.PortStr(), Port.RawStr(), crypto.SharedFromSlice(prg.Key).String())
+	cmd := exec.Command(prg.GetLocation(), prg.PortStr(), Port.RawStr(), crypto.SymmetricFromSlice(prg.Key).String())
 	out, err := cmd.CombinedOutput()
 	if lg.Error(err) {
 		lg.Info(string(out))
@@ -149,7 +149,7 @@ func (p *Pool) GetOverlayPubKey() string {
 		Query(message.GetPubKey, nil).
 		To(p.overlay).
 		Send(func(r *ipc.Base) {
-			ch <- crypto.PubFromSlice(r.Body).String()
+			ch <- crypto.XchgPubFromSlice(r.Body).String()
 		})
 	return <-ch
 }
@@ -169,6 +169,7 @@ func (p *Pool) GetOverlayNetPort() uint32 {
 // GetIP is a temporary method for testing.
 func (p *Pool) GetIP(from *rnet.Addr) *rnet.Addr {
 	ch := make(chan *rnet.Addr)
+	log.Info("sending_get_ip_request")
 	p.ipc.
 		Query(message.GetIP, nil).
 		ToNet(p.overlay, from, 19860714).
