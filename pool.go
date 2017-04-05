@@ -191,3 +191,19 @@ func (p *Pool) GetIP(from *rnet.Addr) *rnet.Addr {
 	}
 	return r
 }
+
+// OverlayRandomKey tells the overlay service to use a random key
+func (p *Pool) OverlayRandomKey() {
+	p.ipc.
+		Base(message.RandomKey, nil).
+		To(p.overlay).
+		Send(nil)
+}
+
+// OverlayStaticKey tells the overlay service to use a static key
+func (p *Pool) OverlayStaticKey() {
+	p.ipc.
+		Base(message.StaticKey, nil).
+		To(p.overlay).
+		Send(nil)
+}

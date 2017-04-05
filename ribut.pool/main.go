@@ -32,6 +32,7 @@ func main() {
 		log.Info(log.Lbl("starting_pool"))
 
 		go p.Run()
+		p.OverlayRandomKey()
 		runCLI(p)
 		return nil
 	}
@@ -52,7 +53,9 @@ func main() {
 				log.Info(log.Lbl("starting_pool"))
 
 				go func() {
-					time.Sleep(time.Millisecond * 50)
+					time.Sleep(time.Millisecond * 10)
+					p.OverlayStaticKey()
+					time.Sleep(time.Millisecond * 40)
 					fmt.Println(p.GetOverlayNetPort(), p.GetOverlayPubKey())
 				}()
 
