@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/dist-ribut-us/crypto"
+	"github.com/dist-ribut-us/ipcrouter"
 	"github.com/dist-ribut-us/log"
 	"github.com/dist-ribut-us/pool"
 	"github.com/dist-ribut-us/prog"
@@ -17,6 +18,9 @@ func main() {
 	log.Contents = log.Truncate
 	log.Go()
 
+	router, err := ipcrouter.New(3000)
+	log.Panic(err)
+
 	app := cli.NewApp()
 	app.Name = "ribut.pool"
 	app.Usage = "Run dist.ribut.us"
@@ -28,6 +32,7 @@ func main() {
 			log.Panic(log.ToFile(pool.LogFile))
 			p = userOpen()
 		}
+		p.Router = router
 
 		log.Info(log.Lbl("starting_pool"))
 
@@ -49,7 +54,7 @@ func main() {
 					log.Panic(log.ToFile(pool.LogFile))
 					p = beaconOpen()
 				}
-
+				p.Router = router
 				log.Info(log.Lbl("starting_pool"))
 
 				go func() {

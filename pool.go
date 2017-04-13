@@ -2,7 +2,7 @@ package pool
 
 import (
 	"github.com/dist-ribut-us/crypto"
-	"github.com/dist-ribut-us/ipc"
+	"github.com/dist-ribut-us/ipcrouter"
 	"github.com/dist-ribut-us/log"
 	"github.com/dist-ribut-us/merkle"
 	"github.com/dist-ribut-us/message"
@@ -22,7 +22,7 @@ var progBkt = []byte("programs")
 type Pool struct {
 	forrest  *merkle.Forest
 	programs map[string]*Program
-	ipc      *ipc.Proc
+	Router   *ipcrouter.Router
 	overlay  rnet.Port
 }
 
@@ -66,19 +66,14 @@ func (p *Pool) Add(prog *Program) error {
 
 // Run the ipc listener and all the progams designated to start
 func (p *Pool) Run() {
-	var err error
-	p.ipc, err = ipc.New(Port)
-	if log.Error(err) {
-		return
-	}
-	p.ipc.Handler(p.handler)
+	p.Router.Register(message.PoolService, p.handler)
 	go p.startAll()
-	p.ipc.Run()
+	p.Router.Run()
 }
 
 // AddBeacon to help connect to network
 func (p *Pool) AddBeacon(addr *rnet.Addr, key *crypto.XchgPub) {
-	p.ipc.
+	p.Router.
 		Base(message.AddBeacon, key.Slice()).
 		SetAddr(addr).
 		To(p.overlay).
@@ -110,14 +105,14 @@ func (p *Pool) run(prg *Program) {
 // not (closes stray programs from previous)
 func (p *Pool) ExitAll() {
 	for _, prg := range p.programs {
-		p.ipc.
+		p.Router.
 			Base(message.Die, nil).
 			To(prg.Port()).
 			Send(nil)
 	}
 }
 
-func (p *Pool) handler(b *ipc.Base) {
+func (p *Pool) handler(b *ipcrouter.Base) {
 	if b.IsQuery() {
 		go p.handleQuery(b)
 	} else {
@@ -126,7 +121,7 @@ func (p *Pool) handler(b *ipc.Base) {
 }
 
 // handleQuery takes a wrapper and responds to it's query
-func (p *Pool) handleQuery(q *ipc.Base) {
+func (p *Pool) handleQuery(q *ipcrouter.Base) {
 	log.Info(log.Lbl("handling_query"))
 	switch t := q.GetType(); t {
 	case message.GetPort:
@@ -145,10 +140,10 @@ func (p *Pool) handleQuery(q *ipc.Base) {
 // GetOverlayPubKey gets the public key for the network
 func (p *Pool) GetOverlayPubKey() string {
 	ch := make(chan string)
-	p.ipc.
+	p.Router.
 		Query(message.GetPubKey, nil).
 		To(p.overlay).
-		Send(func(r *ipc.Base) {
+		Send(func(r *ipcrouter.Base) {
 			ch <- crypto.XchgPubFromSlice(r.Body).String()
 		})
 	return <-ch
@@ -157,10 +152,10 @@ func (p *Pool) GetOverlayPubKey() string {
 // GetOverlayNetPort gets the network port
 func (p *Pool) GetOverlayNetPort() uint32 {
 	ch := make(chan uint32)
-	p.ipc.
+	p.Router.
 		Query(message.GetPort, nil).
 		To(p.overlay).
-		Send(func(r *ipc.Base) {
+		Send(func(r *ipcrouter.Base) {
 			ch <- r.BodyToUint32()
 		})
 	return <-ch
@@ -170,10 +165,10 @@ func (p *Pool) GetOverlayNetPort() uint32 {
 func (p *Pool) GetIP(from *rnet.Addr) *rnet.Addr {
 	ch := make(chan *rnet.Addr)
 	log.Info("sending_get_ip_request")
-	p.ipc.
+	p.Router.
 		Query(message.GetIP, nil).
 		ToNet(p.overlay, from, 19860714).
-		Send(func(r *ipc.Base) {
+		Send(func(r *ipcrouter.Base) {
 			var addrpb message.Addrpb
 			err := r.Unmarshal(&addrpb)
 			if log.Error(err) {
@@ -194,7 +189,7 @@ func (p *Pool) GetIP(from *rnet.Addr) *rnet.Addr {
 
 // OverlayRandomKey tells the overlay service to use a random key
 func (p *Pool) OverlayRandomKey() {
-	p.ipc.
+	p.Router.
 		Base(message.RandomKey, nil).
 		To(p.overlay).
 		Send(nil)
@@ -202,7 +197,7 @@ func (p *Pool) OverlayRandomKey() {
 
 // OverlayStaticKey tells the overlay service to use a static key
 func (p *Pool) OverlayStaticKey() {
-	p.ipc.
+	p.Router.
 		Base(message.StaticKey, nil).
 		To(p.overlay).
 		Send(nil)
