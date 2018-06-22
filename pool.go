@@ -47,6 +47,7 @@ func Open(passphrase []byte) (*Pool, error) {
 
 	if overlay, ok := p.programs["Overlay"]; ok {
 		p.overlay = overlay.Port()
+		p.Router.NetSenderPort = p.overlay
 	}
 
 	return p, nil
@@ -66,15 +67,20 @@ func (p *Pool) Add(prog *Program) error {
 
 // Run the ipc listener and all the progams designated to start
 func (p *Pool) Run() {
-	p.Router.Register(message.PoolService, p.handler)
+	p.Router.Register(p)
 	go p.startAll()
 	p.Router.Run()
+}
+
+// ServiceID for Pool service
+func (*Pool) ServiceID() uint32 {
+	return message.PoolService
 }
 
 // AddBeacon to help connect to network
 func (p *Pool) AddBeacon(addr *rnet.Addr, key *crypto.XchgPub) {
 	p.Router.
-		Base(message.AddBeacon, key.Slice()).
+		Command(message.AddBeacon, key.Slice()).
 		SetAddr(addr).
 		To(p.overlay).
 		Send(nil)
@@ -106,26 +112,18 @@ func (p *Pool) run(prg *Program) {
 func (p *Pool) ExitAll() {
 	for _, prg := range p.programs {
 		p.Router.
-			Base(message.Die, nil).
+			Command(message.Die, nil).
 			To(prg.Port()).
 			Send(nil)
 	}
 }
 
-func (p *Pool) handler(b *ipcrouter.Base) {
-	if b.IsQuery() {
-		go p.handleQuery(b)
-	} else {
-		log.Info(log.Lbl("pool_unknown_type"), b.GetType())
-	}
-}
-
-// handleQuery takes a wrapper and responds to it's query
-func (p *Pool) handleQuery(q *ipcrouter.Base) {
+// QueryHandler for ipc queries to Pool service
+func (p *Pool) QueryHandler(q ipcrouter.Query) {
 	log.Info(log.Lbl("handling_query"))
 	switch t := q.GetType(); t {
 	case message.GetPort:
-		name := string(q.Body)
+		name := q.BodyString()
 		prg, ok := p.programs[name]
 		if !ok {
 			log.Info(log.Lbl("bad_port_request"), name, q.Port())
@@ -143,8 +141,8 @@ func (p *Pool) GetOverlayPubKey() string {
 	p.Router.
 		Query(message.GetPubKey, nil).
 		To(p.overlay).
-		Send(func(r *ipcrouter.Base) {
-			ch <- crypto.XchgPubFromSlice(r.Body).String()
+		Send(func(r ipcrouter.Response) {
+			ch <- crypto.XchgPubFromSlice(r.GetBody()).String()
 		})
 	return <-ch
 }
@@ -155,7 +153,7 @@ func (p *Pool) GetOverlayNetPort() uint32 {
 	p.Router.
 		Query(message.GetPort, nil).
 		To(p.overlay).
-		Send(func(r *ipcrouter.Base) {
+		Send(func(r ipcrouter.Response) {
 			ch <- r.BodyToUint32()
 		})
 	return <-ch
@@ -167,8 +165,8 @@ func (p *Pool) GetIP(from *rnet.Addr) *rnet.Addr {
 	log.Info("sending_get_ip_request")
 	p.Router.
 		Query(message.GetIP, nil).
-		ToNet(p.overlay, from, 19860714).
-		Send(func(r *ipcrouter.Base) {
+		SetService(19860714).
+		SendToNet(from, func(r ipcrouter.NetResponse) {
 			var addrpb message.Addrpb
 			err := r.Unmarshal(&addrpb)
 			if log.Error(err) {
@@ -190,7 +188,7 @@ func (p *Pool) GetIP(from *rnet.Addr) *rnet.Addr {
 // OverlayRandomKey tells the overlay service to use a random key
 func (p *Pool) OverlayRandomKey() {
 	p.Router.
-		Base(message.RandomKey, nil).
+		Command(message.RandomKey, nil).
 		To(p.overlay).
 		Send(nil)
 }
@@ -198,7 +196,7 @@ func (p *Pool) OverlayRandomKey() {
 // OverlayStaticKey tells the overlay service to use a static key
 func (p *Pool) OverlayStaticKey() {
 	p.Router.
-		Base(message.StaticKey, nil).
+		Command(message.StaticKey, nil).
 		To(p.overlay).
 		Send(nil)
 }
